@@ -2,6 +2,6 @@ apiVersion: test.com.test.com/v1alpha1
 kind: Test
 metadata:
   name: test-sample
+  namespace: test-operator-system
 spec:
-  # Add fields here
-  foo: bar
+  message: "(•̀//▽//•́)"
