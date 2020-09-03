@@ -1,0 +1,6 @@
+apiVersion: test.com/v1alpha1
+kind: Test
+metadata:
+  name: test-cr
+spec:
+  message: "(╯°□°)╯︵ ┻━┻"

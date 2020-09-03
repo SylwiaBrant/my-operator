@@ -1,0 +1,11 @@
+domain: test.com
+layout: go.kubebuilder.io/v2
+projectName: test-operator
+repo: github.com/SylwiaBrant/test-operator
+resources:
+- group: test.com
+  kind: Test
+  version: v1alpha1
+version: 3-alpha
+plugins:
+  go.sdk.operatorframework.io/v2-alpha: {}
