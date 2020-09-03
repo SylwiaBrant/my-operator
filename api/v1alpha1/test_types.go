@@ -62,7 +62,7 @@ type ConfigMap struct {
 	Metadata  *metav1.ObjectMeta `json:"metadata"`
 	Name      string             `json:"name"`
 	Namespace string             `json:"namespace"`
-	Message   string             `json:"data"`
+	Message   string             `json:"message"`
 }
 
 func init() {
