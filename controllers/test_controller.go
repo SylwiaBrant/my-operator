@@ -18,14 +18,14 @@ package controllers
 
 import (
 	"context"
-	"k8s.io/apimachinery/pkg/types"
-
+	"fmt"
 	testcomv1alpha1 "github.com/SylwiaBrant/test-operator/api/v1alpha1"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -41,11 +41,10 @@ type TestReconciler struct {
 // +kubebuilder:rbac:groups=test.com.test.com,resources=tests/status,verbs=get;update;patch
 //reconciler - compares provided state with actual cluster state and updates the cluster on finding state differences using a Client
 func (reconciler *TestReconciler) Reconcile(request ctrl.Request) (ctrl.Result, error) {
-	_ = context.Background()
-	reqLogger := reconciler.Log.WithValues("test", request.Name)
+	ctx := context.Background()
+	reqLogger := reconciler.Log.WithValues("test", request.NamespacedName)
 
 	testCR := &testcomv1alpha1.Test{}
-	ctx := context.TODO()
 	err := reconciler.Get(ctx, request.NamespacedName, testCR)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -59,27 +58,29 @@ func (reconciler *TestReconciler) Reconcile(request ctrl.Request) (ctrl.Result, 
 		reqLogger.Info("An error occured. Retrying...")
 		return ctrl.Result{}, err
 	}
-	reqLogger.Info("Custom Resource created successfully.")
+	reqLogger.Info(fmt.Sprintf("Custom Resource created successfully. Name: %s, NS: %s, Cfname: %s, Message: %s", testCR.Name, testCR.Namespace, testCR.Spec.Cfname, testCR.Spec.Message))
 
 	testConfigMap := &corev1.ConfigMap{}
-	err = reconciler.Get(context.TODO(), types.NamespacedName{Name: testCR.Name, Namespace: testCR.Namespace}, testConfigMap)
+	err = reconciler.Get(context.TODO(), types.NamespacedName{Name: testCR.Spec.Cfname, Namespace: testCR.Namespace}, testConfigMap)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			testConfigMap = reconciler.createConfigMap(testCR)
 			if err = reconciler.Create(context.TODO(), testConfigMap); err != nil {
 				reqLogger.Info("Failed to create new ConfigMap")
 				return ctrl.Result{}, err
+			} else {
+				reqLogger.Info(fmt.Sprintf("ConfigMap created successfully. Name: %s, NS: %s, Message: %s", testConfigMap.Name, testConfigMap.Namespace, testConfigMap.Data["message"]))
+				return ctrl.Result{}, nil
 			}
-			reqLogger.Info("Custom Resource object not found. Ignoring request")
-			return ctrl.Result{Requeue: true}, nil
 		} else {
+			reqLogger.Error(err, "Failed to get config map. Retrying...")
 			return ctrl.Result{}, err
 		}
 	}
 
 	testConfigMap.Data["message"] = testCR.Spec.Message
 	err = reconciler.Update(context.TODO(), testConfigMap)
-	reqLogger.Info("ConfigMap created successfully")
+	reqLogger.Info(fmt.Sprintf("ConfigMap updated successfully. Name %s, Namespace %s, Message %s", testConfigMap.Name, testConfigMap.Namespace, testConfigMap.Data["message"]))
 
 	return ctrl.Result{}, nil
 }
@@ -88,7 +89,7 @@ func (reconciler *TestReconciler) createConfigMap(cr *testcomv1alpha1.Test) *cor
 
 	testConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name,
+			Name:      cr.Spec.Cfname,
 			Namespace: cr.Namespace,
 		},
 		Data: map[string]string{

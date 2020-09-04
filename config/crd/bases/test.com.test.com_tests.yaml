@@ -36,12 +36,15 @@ spec:
         spec:
           description: TestSpec defines the desired state of Test
           properties:
-            message:
+            cfname:
               description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
                 Important: Run "make" to regenerate code after modifying this file
                 Foo is an example field of Test. Edit Test_types.go to remove/update'
               type: string
+            message:
+              type: string
           required:
+          - cfname
           - message
           type: object
         status:

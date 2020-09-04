@@ -28,6 +28,7 @@ type TestSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 	// Foo is an example field of Test. Edit Test_types.go to remove/update
+	Cfname  string `json:"cfname"`
 	Message string `json:"message"`
 }
 
