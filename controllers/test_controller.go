@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -44,6 +45,7 @@ func (reconciler *TestReconciler) Reconcile(request ctrl.Request) (ctrl.Result, 
 	ctx := context.Background()
 	reqLogger := reconciler.Log.WithValues("test", request.NamespacedName)
 
+	//Fetch Custom Resource Test instance
 	testCR := &testcomv1alpha1.Test{}
 	err := reconciler.Get(ctx, request.NamespacedName, testCR)
 	if err != nil {
@@ -58,8 +60,8 @@ func (reconciler *TestReconciler) Reconcile(request ctrl.Request) (ctrl.Result, 
 		reqLogger.Info("An error occured. Retrying...")
 		return ctrl.Result{}, err
 	}
-	reqLogger.Info(fmt.Sprintf("Custom Resource created successfully. Name: %s, NS: %s, Cfname: %s, Message: %s", testCR.Name, testCR.Namespace, testCR.Spec.Cfname, testCR.Spec.Message))
 
+	//Create or update ConfigMap instance
 	testConfigMap := &corev1.ConfigMap{}
 	err = reconciler.Get(context.TODO(), types.NamespacedName{Name: testCR.Spec.Cfname, Namespace: testCR.Namespace}, testConfigMap)
 	if err != nil {
@@ -68,20 +70,23 @@ func (reconciler *TestReconciler) Reconcile(request ctrl.Request) (ctrl.Result, 
 			if err = reconciler.Create(context.TODO(), testConfigMap); err != nil {
 				reqLogger.Info("Failed to create new ConfigMap")
 				return ctrl.Result{}, err
-			} else {
-				reqLogger.Info(fmt.Sprintf("ConfigMap created successfully. Name: %s, NS: %s, Message: %s", testConfigMap.Name, testConfigMap.Namespace, testConfigMap.Data["message"]))
-				return ctrl.Result{}, nil
 			}
+			reqLogger.Info(fmt.Sprintf("ConfigMap created successfully. Name: %s, NS: %s, Message: %s", testConfigMap.Name, testConfigMap.Namespace, testConfigMap.Data["message"]))
+			return ctrl.Result{}, nil
 		} else {
 			reqLogger.Error(err, "Failed to get config map. Retrying...")
 			return ctrl.Result{}, err
 		}
 	}
 
-	testConfigMap.Data["message"] = testCR.Spec.Message
-	err = reconciler.Update(context.TODO(), testConfigMap)
-	reqLogger.Info(fmt.Sprintf("ConfigMap updated successfully. Name %s, Namespace %s, Message %s", testConfigMap.Name, testConfigMap.Namespace, testConfigMap.Data["message"]))
-
+	if !reflect.DeepEqual(testConfigMap.Data["message"], testCR.Spec.Message) {
+		testConfigMap.Data["message"] = testCR.Spec.Message
+		if err := reconciler.Update(context.TODO(), testConfigMap); err != nil {
+			reqLogger.Error(err, "Failed to update ConfigMap")
+			return ctrl.Result{}, err
+		}
+		reqLogger.Info(fmt.Sprintf("ConfigMap updated successfully. Name %s, Namespace %s, Message %s", testConfigMap.Name, testConfigMap.Namespace, testConfigMap.Data["message"]))
+	}
 	return ctrl.Result{}, nil
 }
 
@@ -96,13 +101,13 @@ func (reconciler *TestReconciler) createConfigMap(cr *testcomv1alpha1.Test) *cor
 			"message": cr.Spec.Message,
 		},
 	}
+	ctrl.SetControllerReference(cr, testConfigMap, reconciler.Scheme)
 	return testConfigMap
 }
 
-// specifies how the controller is built to watch a CR and other resources that are owned
-// and managed by that controller
 func (reconciler *TestReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&testcomv1alpha1.Test{}).
+		Owns(&corev1.ConfigMap{}).
 		Complete(reconciler)
 }
