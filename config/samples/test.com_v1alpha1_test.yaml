@@ -5,4 +5,4 @@ metadata:
   namespace: test-operator-system
 spec:
   cfname: "test-cf"
-  message: "(•̀//▽//•́)"
+  message: ":3"
